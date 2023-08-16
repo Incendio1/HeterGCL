@@ -64,47 +64,33 @@ parser.add_argument('--save_results', action='store_true',
                     help='save the results')
 parser.add_argument('--Init', type=str, default='random',
                     help='the init method gamma logits')
-parser.add_argument('--method', type=str, default='hn2n+CCA')
-parser.add_argument('-ta', '--topology_augmentation', type=str, default='learned',
+parser.add_argument('--method', type=str, default='ANC+OFA')
+parser.add_argument('-ta', '--str_aug', type=str, default='learned',
                     choices=['para', 'knn', 'none', 'drop_edge', 'ANA'])
 parser.add_argument('--task', type=str, default='node_classification',
                     help='node_cluster/node_classification')
 parser.add_argument('--save_figure', action='store_true', default=False)
-
 parser.add_argument('--layers', nargs='+', type=int)
 parser.add_argument('--MH_layer', type=int, default=10)
-
 # parser.add_argument("--nclusters", type=int, default=5, help='Number of clusters in kmeans')
 # parser.add_argument("--niter", type=int, default=20, help='Number of iteration for kmeans.')
 # parser.add_argument("--sigma", type=float, default=1e-3, help='2sigma^2 in GMM')
-
-
-
 args = parser.parse_args()
-
 seed_it(args.seed)
-
 print(args)
-
 device = torch.device(
     'cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-### Load and preprocess data ###
 dataset = load_nc_dataset(args.dataset, args.sub_dataset)
-
 if len(dataset.label.shape) == 1:
     dataset.label = dataset.label.unsqueeze(1)
 dataset.label = dataset.label.to(device)
-
-
 # MH
 edge_file = './MH_info/hop_edge_index_' + args.dataset + '_' + str(args.MH_layer)
 if (path.exists(edge_file) == False):
     edge_info(dataset, args)
-# load ild decomposed edge_index and multi-hop edge weight(att)
+# load decomposed edge_index and multi-hop edge weight(att)
 hop_edge_index = torch.load('./MH_info/hop_edge_index_' + args.dataset + '_' + str(args.MH_layer))
 hop_edge_att = torch.load('./MH_info/hop_edge_att_' + args.dataset + '_' + str(args.MH_layer))
-
 # get the splits for all runs
 if args.rand_split or args.dataset == 'ogbn-proteins':
     print("Using random splits")
@@ -131,33 +117,27 @@ print(f"num nodes {num_nodes} | num classes {num_classes} | num node feats {feat
 
 def train(model, graph_learner, optimizer, data, args):
     model.train()
-
     optimizer.zero_grad()
-
     x1, x2 = data.graph['node_feat'], feat_drop(data.graph['node_feat'], p=args.feat_drop)
     edge_index = data.graph['edge_index']
-
     knn_edge_index = KNN_graph(data.graph['node_feat'], k=args.k)
     drop_edge_index = edge_drop(data.graph['edge_index'], p=args.edge_drop)
-
     learned_adj = graph_learner(data.graph['node_feat'])
     learned_edge_index = torch.nonzero(learned_adj).t()
     learned_edge_weight = learned_adj[learned_edge_index[0], learned_edge_index[1]]
-
-
     h1 = model(x1)
     h2 = model(x2)
-
-    if args.topology_augmentation=='para':
+    
+    if args.str_aug == 'para':
         hs1 = model.prop(
             h1, learned_edge_index, learned_edge_weight)
-    elif args.topology_augmentation=='knn':
+    elif args.str_aug == 'knn':
         hs1 = model.prop(h1, knn_edge_index)
-    elif args.topology_augmentation=='drop_edge':
+    elif args.str_aug == 'drop_edge':
         hs1 = model.prop(h1, drop_edge_index)
-    elif args.topology_augmentation=='none':
+    elif args.str_aug == 'none':
         hs1 = model.prop(h1, edge_index)
-    elif args.topology_augmentation == 'ANA':
+    elif args.str_aug == 'ANA':
         # different hop
         for layer in args.layers:
             hop_edge_index[layer - 1] = hop_edge_index[layer - 1].type(torch.LongTensor).to(device)
@@ -166,24 +146,17 @@ def train(model, graph_learner, optimizer, data, args):
     else:
         raise ValueError("Unrecognized augmentation")
 
-
     alpha = args.alpha
     # homoloss, _ = homo_loss(h1, edge_index, args.nclusters, args.niter, args.sigma)
     # ANALoss + OFAloss
     loss = alpha * model.ANC_total(h1, hs1) + (1-alpha) * args.scale*CCA_SSG(h1, h2, beta=0)
-
     print(f"loss: {loss.item()}")
-
     loss.backward()
-
     optimizer.step()
 
 
-
 def test(model, data, epoch, args, split_idx=None, task='node_classification'):
-
     model.eval()
-
     with torch.no_grad():
         representations = model.get_embedding(
             data.graph['node_feat'])
@@ -195,21 +168,17 @@ def test(model, data, epoch, args, split_idx=None, task='node_classification'):
 
     if args.save_figure and epoch % 50 == 0:
         visualize(representations, data.label.squeeze(1), args.method, args.dataset, epoch)
-
     if task == 'node_classification':
         result = linear_eval(
             representations.cpu().numpy(), data.label.squeeze(1).cpu().numpy(), split=split_idx)
-
         print(f"micro_f1: {result['micro_f1']}")
         print(f"macro_f1: {result['macro_f1']}")
     elif task == 'node_cluster':
         result = kmeans_test(representations, dataset.label.squeeze(1), n_clusters=num_classes, repeat=1)
-
         print(f'Epoch: {epoch:02d}, '
                     f'acc: {100 * result[0]:.2f}%, '
                     f'nmi: {100 * result[2]:.2f}%, '
                     f'ari: {100 * result[4]:.2f}%, ')
-
     return result
 
 
@@ -221,9 +190,7 @@ for run in range(args.runs):
 
     model = model.to(device)
     graph_learner = graph_learner.to(device)
-
     print(model)
-
     optimizer = torch.optim.Adam([
         {
             'params': filter(lambda x: x is not model.logits, model.parameters()),
@@ -265,11 +232,9 @@ for run in range(args.runs):
         best_results.append((best_micro, best_macro))
     elif args.task == 'node_cluster':
         result = torch.tensor(all_results)
-
         best_acc = result[:, 0].max()
         best_nmi = result[:, 2].max()
         best_ari = result[:, 4].max()
-
         print(f'Highest acc: {100*result[:, 0].max():.2f}')
         print(f'Highest nmi: {100*result[:, 2].max():.2f}')
         print(f'Highest ari: {100*result[:, 4].max():.2f}')
