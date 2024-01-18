@@ -45,7 +45,7 @@ class MIP_prop(MessagePassing):
         return embed_layer
 
 
-class HeterSNE(nn.Module):
+class HeterGCL(nn.Module):
     def __init__(self, dataset, args):
         super().__init__()
 
