@@ -51,7 +51,7 @@ def l_bgrl(q1, q2, y1, y2):
     # [B, D]
     return 2 - cosine_similarity(q1, y2.detach(), dim=-1).mean() - cosine_similarity(q2, y1.detach(), dim=-1).mean()
 
-def homo_loss(x, edge_index, nclusters, niter, sigma):
+def LF_loss(x, edge_index, nclusters, niter, sigma):
     kmeans = faiss.Kmeans(x.shape[1], nclusters, niter=niter)
     kmeans.train(x.cpu().detach().numpy())
     centroids = torch.FloatTensor(kmeans.centroids).to(x.device)
