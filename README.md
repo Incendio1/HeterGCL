@@ -1,6 +1,6 @@
 # HeterGCL
 ## Usage Example
-### HeterSNE
+### HeterGCL
 CiteSeer 
 ```javascript 
 python main.py --dataset CiteSeer --epochs 700 --lr 0.001 --lr_gamma 0.0005 --weight_decay 0.0005 --hidden_size 512 --output_size 512 --dropout 0 --task node_classification --str_aug ANA --layer 1 --L 1 --alpha 0.9
