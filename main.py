@@ -3,7 +3,7 @@ import random
 import time
 from losses import *
 from transforms import *
-from model import HeterSNE
+from model import HeterGCL
 from graph_learner import ATT_learner
 from dataset import load_nc_dataset
 from eval_tools import kmeans_test
@@ -72,9 +72,9 @@ parser.add_argument('--task', type=str, default='node_classification',
 parser.add_argument('--save_figure', action='store_true', default=False)
 parser.add_argument('--layers', nargs='+', type=int)
 parser.add_argument('--MH_layer', type=int, default=10)
-# parser.add_argument("--nclusters", type=int, default=5, help='Number of clusters in kmeans')
-# parser.add_argument("--niter", type=int, default=20, help='Number of iteration for kmeans.')
-# parser.add_argument("--sigma", type=float, default=1e-3, help='2sigma^2 in GMM')
+parser.add_argument("--nclusters", type=int, default=5, help='Number of clusters in kmeans')
+parser.add_argument("--niter", type=int, default=20, help='Number of iteration for kmeans.')
+parser.add_argument("--sigma", type=float, default=1e-3, help='2sigma^2 in GMM')
 args = parser.parse_args()
 seed_it(args.seed)
 print(args)
