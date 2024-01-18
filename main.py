@@ -147,9 +147,8 @@ def train(model, graph_learner, optimizer, data, args):
         raise ValueError("Unrecognized augmentation")
 
     alpha = args.alpha
-    # homoloss, _ = homo_loss(h1, edge_index, args.nclusters, args.niter, args.sigma)
-    # ANALoss + OFAloss
-    loss = alpha * model.ANC_total(h1, hs1) + (1-alpha) * args.scale*CCA_SSG(h1, h2, beta=0)
+    LFloss, _ = LF_loss(h1, edge_index, args.nclusters, args.niter, args.sigma)
+    loss = alpha * model.ANC_total(h1, hs1) + (1-alpha) * args.scale*CCA_SSG(h1, h2, beta=0) + (1-alpha) * LFloss
     print(f"loss: {loss.item()}")
     loss.backward()
     optimizer.step()
@@ -184,7 +183,7 @@ def test(model, data, epoch, args, split_idx=None, task='node_classification'):
 
 best_results = []
 for run in range(args.runs):
-    model = HeterSNE(dataset, args)
+    model = HeterGCL(dataset, args)
     graph_learner = ATT_learner(2, isize=feat_dimension, k=args.k, knn_metric=args.knn_metric,
                                 i=6, sparse=args.sparse, mlp_act=args.activation_learner)
 
