@@ -1,4 +1,5 @@
-# HeterGCL
+# IJCAI 2024 -- HeterGCL
+IJCAI'2024 code resource -- HeterGCL
 ## Usage Example
 ### HeterGCL
 CiteSeer 
